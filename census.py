@@ -20,17 +20,20 @@ mongo=credentials.mongo_cred
 client=MongoClient(mongo["url"])
 db=client[mongo["db"]]
 collection=db[mongo["collection"]]
-data_dict=df.to_dict('records')
 #collection.delete_many({})
-collection.insert_many(data_dict)
+collection.insert_many(df.to_dict('records'))
 document=collection.find_one()
 client.close()
 schema_columns = list(document.keys())
 
-sql=credentials.mysql_cred
-mysqldb = mysql.connector.connect(**sql)
+mysqldb = mysql.connector.connect(**credentials.mysql_cred)
 cursor=mysqldb.cursor()
-cursor.execute("create table Rupamtable( id INT PRIMARY KEY,name VARCHAR(100),salary INT)")
-cursor.execute("use table Rupamtable")
-cursor.execute("insert into Rupamtable values((1,'Rupam',3000),(2,'Sayan',20000))")
+
+
+
+
+
+
+
+cursor.close()
 mysqldb.close()
