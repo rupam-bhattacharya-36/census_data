@@ -1,14 +1,69 @@
 import pandas as pd
 def modify_statename(s):
+    # convert all state names to title format with 'and' if present in lowercase example Jammu and Kashmir
     return ' '.join(word if word.lower()!='and' else 'and' for word in s.title().split())
 
 def fill_missing_population(df:pd.DataFrame):
+    # filling missing population values by male+female where male and female has values
     mask_population = (df['Population'].isna() & (df[['Male','Female']].isna().sum(axis=1)==0))
     df.loc[mask_population,'Population']=df.loc[mask_population,'Male'] + df.loc[mask_population,'Female']
+
+    # filling missing population values by age groups where all age groups has values
     mask_age = (df['Population'].isna() & (df[['Young_and_Adult','Middle_Aged','Senior_Citizen','Age_Not_Stated']].isna().sum(axis=1)==0))
     df.loc[mask_age,'Population'] = df.loc[mask_age,'Young_and_Adult']+df.loc[mask_age,'Middle_Aged']+df.loc[mask_age,'Senior_Citizen']+df.loc[mask_age,'Age_Not_Stated']
-    df['Male']=df['Male'].fillna(df['Population']-df['Female'])
-    df['Female']=df['Female'].fillna(df['Population']-df['Male'])
+
+    # filling missing population values by workers number as every person falls under 3 category of workers
+    mask=df['Population'].isna() & (df[['Main_Workers','Marginal_Workers','Non_Workers']].isna().sum(axis=1)==0)
+    df.loc[mask,'Population']=df.loc[mask,'Main_Workers']+df.loc[mask,'Marginal_Workers']+df.loc[mask,'Non_Workers']
+
+    # filling missing population values by religion data as every person will fall under a certain religion.
+    mask=df['Population'].isna() & (df[['Hindus','Muslims','Christians','Sikhs','Buddhists','Jains','Others_Religions','Religion_Not_Stated']].isna().sum(axis=1)==0)
+    df.loc[mask,'Population']=df.loc[mask,'Hindus']+df.loc[mask,'Muslims']+df.loc[mask,'Christians']+df.loc[mask,'Sikhs']+df.loc[mask,'Buddhists']+df.loc[mask,'Jains']+df.loc[mask,'Others_Religions']+df.loc[mask,'Religion_Not_Stated']
+
+    # all population fields are filled, now filling missing male fields
+    mask=df['Male'].isna()
+    df.loc[mask,'Male']=df.loc[mask,'Population']-df.loc[mask,'Female']
+
+    # filling missing female fields
+    mask=df['Female'].isna()
+    df.loc[mask,'Female']=df.loc[mask,'Population']-df.loc[mask,'Male']
+
+    # all the fields in population, male, female are filled. now filling rest of the fileds where population can be used
+
+    # filling missing age groups
+    # creating a common sum of all agegroups for future use
+    agesumdf=df.loc[:,'Young_and_Adult':'Age_Not_Stated'].sum(axis=1)
+    # filling Young_and_Adult agegroup
+    mask =df['Young_and_Adult'].isna() & df.loc[:,'Middle_Aged':'Age_Not_Stated'].isna().sum(axis=1)==0
+    df.loc[mask,'Young_and_Adult'] = df.loc[mask,'Population'] - agesumdf[mask]
+    mask=df['Middle_Aged'].isna()&df.loc[:,['Young_and_Adult','Senior_Citizen','Age_Not_Stated']].isna().sum(axis=1)==0
+    df.loc[mask,'Middle_Aged'] = df.loc[mask,'Population'] - agesumdf[mask]
+    mask=df['Senior_Citizen'].isna()&df.loc[:,['Young_and_Adult','Middle_Aged','Age_Not_Stated']].isna().sum(axis=1)==0
+    df.loc[mask,'Senior_Citizen'] = df.loc[mask,'Population'] - agesumdf[mask]
+    mask=df['Age_Not_Stated'].isna() & df.loc[:,'Young_and_Adult':'Senior_Citizen'].isna().sum(axis=1)==0
+    df.loc[mask,'Age_Not_Stated'] = df.loc[mask,'Population'] - agesumdf[mask]
+
+    religiondf=df.loc[:,'Hindus':'Religion_Not_Stated'].sum(axis=1)
+    mask=df['Hindus'].isna() & df.loc[:,list(df.loc[:,'Hindus':'Religion_Not_Stated'].drop('Hindus',axis=1).columns)].isna().sum(axis=1)==0
+    df.loc[mask,'Hindus']=df.loc[mask,'Population']-religiondf[mask]
+    mask=df['Muslims'].isna() & df.loc[:,list(df.loc[:,'Hindus':'Religion_Not_Stated'].drop('Muslims',axis=1).columns)].isna().sum(axis=1)==0
+    df.loc[mask,'Muslims']=df.loc[mask,'Population']-religiondf[mask]
+    mask=df['Christians'].isna() & df.loc[:,list(df.loc[:,'Hindus':'Religion_Not_Stated'].drop('Christians',axis=1).columns)].isna().sum(axis=1)==0
+    df.loc[mask,'Christians']=df.loc[mask,'Population']-religiondf[mask]
+    mask=df['Sikhs'].isna() & df.loc[:,list(df.loc[:,'Hindus':'Religion_Not_Stated'].drop('Sikhs',axis=1).columns)].isna().sum(axis=1)==0
+    df.loc[mask,'Sikhs']=df.loc[mask,'Population']-religiondf[mask]
+    mask=df['Buddhists'].isna() & df.loc[:,list(df.loc[:,'Hindus':'Religion_Not_Stated'].drop('Buddhists',axis=1).columns)].isna().sum(axis=1)==0
+    df.loc[mask,'Buddhists']=df.loc[mask,'Population']-religiondf[mask]
+    mask=df['Jains'].isna() & df.loc[:,list(df.loc[:,'Hindus':'Religion_Not_Stated'].drop('Jains',axis=1).columns)].isna().sum(axis=1)==0
+    df.loc[mask,'Jains']=df.loc[mask,'Population']-religiondf[mask]
+    mask=df['Others_Religions'].isna() & df.loc[:,list(df.loc[:,'Hindus':'Religion_Not_Stated'].drop('Others_Religions',axis=1).columns)].isna().sum(axis=1)==0
+    df.loc[mask,'Others_Religions']=df.loc[mask,'Population']-religiondf[mask]
+    mask=df['Religion_Not_Stated'].isna() & df.loc[:,list(df.loc[:,'Hindus':'Religion_Not_Stated'].drop('Religion_Not_Stated',axis=1).columns)].isna().sum(axis=1)==0
+    df.loc[mask,'Religion_Not_Stated']=df.loc[mask,'Population']-religiondf[mask]
+
+    
+
+
 
 def fill_missing_age(df: pd.DataFrame):
     pop_notna = df['Population'].notna()
