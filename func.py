@@ -9,16 +9,16 @@ def fill_missing_population(df:pd.DataFrame):
     df.loc[mask_population,'Population']=df.loc[mask_population,'Male'] + df.loc[mask_population,'Female']
 
     # filling missing population values by age groups where all age groups has values
-    mask_age = (df['Population'].isna() & (df[['Young_and_Adult','Middle_Aged','Senior_Citizen','Age_Not_Stated']].isna().sum(axis=1)==0))
-    df.loc[mask_age,'Population'] = df.loc[mask_age,'Young_and_Adult']+df.loc[mask_age,'Middle_Aged']+df.loc[mask_age,'Senior_Citizen']+df.loc[mask_age,'Age_Not_Stated']
+    mask_age = (df['Population'].isna() & (df.loc[:,'Young_and_Adult':'Age_Not_Stated'].isna().sum(axis=1)==0))
+    df.loc[mask_age,'Population'] = df.loc[mask_age,'Young_and_Adult':'Age_Not_Stated'].sum(axis=1)
 
     # filling missing population values by workers number as every person falls under 3 category of workers
     mask=df['Population'].isna() & (df[['Main_Workers','Marginal_Workers','Non_Workers']].isna().sum(axis=1)==0)
-    df.loc[mask,'Population']=df.loc[mask,'Main_Workers']+df.loc[mask,'Marginal_Workers']+df.loc[mask,'Non_Workers']
+    df.loc[mask,'Population']=df.loc[mask,'Main_Workers':'Non_Workers'].sum(axis=1)
 
     # filling missing population values by religion data as every person will fall under a certain religion.
-    mask=df['Population'].isna() & (df[['Hindus','Muslims','Christians','Sikhs','Buddhists','Jains','Others_Religions','Religion_Not_Stated']].isna().sum(axis=1)==0)
-    df.loc[mask,'Population']=df.loc[mask,'Hindus']+df.loc[mask,'Muslims']+df.loc[mask,'Christians']+df.loc[mask,'Sikhs']+df.loc[mask,'Buddhists']+df.loc[mask,'Jains']+df.loc[mask,'Others_Religions']+df.loc[mask,'Religion_Not_Stated']
+    mask=df['Population'].isna() & (df.loc[:,'Hindus':'Religion_Not_Stated'].isna().sum(axis=1)==0)
+    df.loc[mask,'Population']=df.loc[mask,'Hindus':'Religion_Not_Stated'].sum(axis=1)
 
     # all population fields are filled, now filling missing male fields
     mask=df['Male'].isna()
