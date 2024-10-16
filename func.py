@@ -61,6 +61,13 @@ def fill_missing_population(df:pd.DataFrame):
     mask=df['Religion_Not_Stated'].isna() & df.loc[:,list(df.loc[:,'Hindus':'Religion_Not_Stated'].drop('Religion_Not_Stated',axis=1).columns)].isna().sum(axis=1)==0
     df.loc[mask,'Religion_Not_Stated']=df.loc[mask,'Population']-religiondf[mask]
 
+    mask=df['Main_Workers'].isna() & df[['Marginal_Workers','Non_Workers']].isna().sum(axis=1)==0
+    df.loc[mask,'Main_Workers']=df.loc[mask,'Population']-df.loc[mask,'Marginal_Workers':'Non_Workers'].sum(axis=1)
+    mask=df['Marginal_Workers'].isna() & df[['Main_Workers','Non_Workers']].isna().sum(axis=1)==0
+    df.loc[mask,'Marginal_Workers']=df.loc[mask,'Population']-df.loc[mask,['Main_Workers','Non_Workers']].sum(axis=1)
+    mask=df['Non_Workers'].isna() & df[['Main_Workers','Marginal_Workers']].isna().sum(axis=1)==0
+    df.loc[mask,'Non_Workers']=df.loc[mask,'Population']-df.loc[mask,['Main_Workers','Marginal_Workers']].sum(axis=1)
+
     
 
 
