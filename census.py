@@ -13,11 +13,10 @@ df2 = pd.read_excel("Census_2011.xlsx",sheet_name="Telengana",header=None)
 my_dict={key:"Telengana" for key in df2.iloc[:,0].values}
 df['State/UT']=df['District'].map(my_dict).fillna(df['State/UT'])
 nan_counts = df.isna().sum().to_frame(name='NaN Count').T
-print(nan_counts.loc[:, 'Hindus':'Religion_Not_Stated'])
+print(nan_counts.loc[:, 'Main_Workers':'Non_Workers'])
 func.fill_missing_population(df)
 nan_counts = df.isna().sum().to_frame(name='NaN Count').T
-# nan_counts=df[df.loc[:,'Young_and_Adult':'Age_Not_Stated'].isna().sum(axis=1)>0]
-print(nan_counts.loc[:,'Hindus':'Religion_Not_Stated'])
+print(nan_counts.loc[:,'Main_Workers':'Non_Workers'])
 func.fill_missing_age(df)
 func.fill_missing_literates(df)
 func.fill_missing_household(df)
