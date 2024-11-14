@@ -1,83 +1,58 @@
 import pandas as pd
 import func
 from pymongo import MongoClient
-from bson.objectid import ObjectId
 import mysql.connector,credentials,re
-from io import StringIO
 
 
 df = pd.read_excel("Census_2011.xlsx",sheet_name='census_2011 csv')
-df.rename(columns={'State name': 'State/UT', 'District name': 'District','Male_Literate':'Literate_Male','Female_Literate':'Literate_Female','Rural_Households':'Households_Rural','Urban_Households':'Households_Urban','Age_Group_0_29':'Young_and_Adult','Age_Group_30_49':'Middle_Aged','Age_Group_50':'Senior_Citizen','Age not stated':'Age_Not_Stated'},inplace=True)
-df['State/UT']=df['State/UT'].map(func.modify_statename).fillna(df['State/UT'])
+df.rename(columns={'State name': 'State_UT', 'District name': 'District','Male_Literate':'Literate_Male','Female_Literate':'Literate_Female','Rural_Households':'Households_Rural','Urban_Households':'Households_Urban','Age_Group_0_29':'Young_and_Adult','Age_Group_30_49':'Middle_Aged','Age_Group_50':'Senior_Citizen','Age not stated':'Age_Not_Stated'},inplace=True)
+df['State_UT']=df['State_UT'].map(func.modify_statename).fillna(df['State_UT'])
 df2 = pd.read_excel("Census_2011.xlsx",sheet_name="Telengana",header=None)
 my_dict={key:"Telengana" for key in df2.iloc[:,0].values}
-df['State/UT']=df['District'].map(my_dict).fillna(df['State/UT'])
-nan_counts = df.isna().sum().to_frame(name='NaN Count').T
-print(nan_counts.loc[:, ['Workers','Male_Workers','Female_Workers']])
+df['State_UT']=df['District'].map(my_dict).fillna(df['State_UT'])
+
+# data cleaning and transformation
 func.fill_missing_population(df)
-nan_counts = df.isna().sum().to_frame(name='NaN Count').T
-print(nan_counts.loc[:,['Workers','Male_Workers','Female_Workers']])
-func.fill_missing_age(df)
-func.fill_missing_literates(df)
-func.fill_missing_household(df)
 
+# dictionary of original column names and refined names removing whitespace and extra _
+mapped_cols={col:re.sub(r'(_+\s+|\s+_+|\s+|_+)',r'_',col).strip('_') for col in df.columns}
+df.rename(columns=mapped_cols,inplace=True)
+
+# dictionary of the column names whose length>50 where key:columnname value:shorthand form
+mapped_cols={col:''.join(word[0].lower() for word in col.split('_')) for col in df.columns if len(col)>50}
+
+
+# connecting with mongodb to upload dataframe
 mongo=credentials.mongo_cred
-client=MongoClient(mongo["url"])
-db=client[mongo["db"]]
-documents=db[mongo["collection"]]
-#collection.delete_many({})
-# collection.insert_many(df.to_dict('records'))
+client_server_connection=MongoClient(mongo["url"])
+db=client_server_connection[mongo["db"]]
+collection_documents=db[mongo["collection"]]
+collection_documents.delete_many({})
+collection_documents.insert_many(df.to_dict(orient='records'))
 
-# Find one document where no field has a null value
-query = {"$and": [{field: {"$ne": None}} for field in documents.find_one().keys()]}
-document = documents.find_one(query)
-client.close()
-def mapdict(string):
-    string = re.sub(r"[/\- ]+|_{2,}", "_", string)
-    if len(string)>50:
-        return ''.join(word[0].upper() for word in string.split('_'))
-    else:
-        return string
 
-mappedkeys={key:mapdict(key) for key in document.keys()}
-table_str=StringIO()
-table_str.write("object_id BINARY(12) PRIMARY KEY")
-for k,v in mappedkeys.items():
-    if isinstance(document[k],ObjectId):
-        continue
-    elif isinstance(document[k],int):
-        sql_type="INT"
-    elif isinstance(document[k],float):
-        sql_type="FLOAT"
-    elif isinstance(document[k],str):
-        sql_type="VARCHAR(200)"
-    else:
-        sql_type="TEXT"
-    table_str.write(f",{v} {sql_type}")
-sql=f"CREATE TABLE IF NOT EXISTS CENSUS ({table_str.getvalue()})"
-
-table_str.close()
-
+# connecting with mysql database
 mysqldb=mysql.connector.connect(**credentials.mysql_cred)
+mysqlcursor=mysqldb.cursor()
 
-cursor=mysqldb.cursor()
-
-cursor.execute(sql)
-
+# this part is for creating a new table in the database which requires names of column with datatype
+# mysql_columns is a generator object iterable where each iteration yields "column_name datatype"
+mysql_columns=func.mysqlcolumns(df,mapped_cols)
+mysqlcursor.execute(f"create table if not exists censustable (object_id BINARY(12) PRIMARY KEY,{','.join(i for i in mysql_columns)})")
 mysqldb.commit()
 
-def insertype(element):
-    if isinstance(element,ObjectId):
-        return element.binary
-    else:
-        return element
+# # inserting data from mongodb to mysql
+collection_records=collection_documents.find()
+for doc in collection_records:
+    id=doc.pop('_id').binary
+    query=f"insert into censustable values(%s,{','.join('%s' for i in range(len(doc)))})"
+    mysqlcursor.execute(query,[id]+[doc[key] for key in doc])
+    mysqldb.commit()
 
-insert_query=StringIO()
-for d in documents:
-    for v in d.values():
-        insert_query.write(f"")
-sql_query=f"INSERT INTO CENSUS VALUES({insert_query})"
+client_server_connection.close()
 
 
-cursor.close()
+
+
+mysqlcursor.close()
 mysqldb.close()

@@ -43,6 +43,7 @@ def fill_missing_population(df:pd.DataFrame):
     mask=(df['Age_Not_Stated'].isna()) & (df.loc[:,'Young_and_Adult':'Senior_Citizen'].isna().sum(axis=1)==0)
     df.loc[mask,'Age_Not_Stated'] = df.loc[mask,'Population'] - agesumdf[mask]
 
+    # fill missing religions
     religiondf=df.loc[:,'Hindus':'Religion_Not_Stated'].sum(axis=1)
     mask=(df['Hindus'].isna()) & (df.loc[:,list(df.loc[:,'Hindus':'Religion_Not_Stated'].drop('Hindus',axis=1).columns)].isna().sum(axis=1)==0)
     df.loc[mask,'Hindus']=df.loc[mask,'Population']-religiondf[mask]
@@ -61,36 +62,44 @@ def fill_missing_population(df:pd.DataFrame):
     mask=(df['Religion_Not_Stated'].isna()) & (df.loc[:,list(df.loc[:,'Hindus':'Religion_Not_Stated'].drop('Religion_Not_Stated',axis=1).columns)].isna().sum(axis=1)==0)
     df.loc[mask,'Religion_Not_Stated']=df.loc[mask,'Population']-religiondf[mask]
 
+    # fill missing workers
     mask=(df['Main_Workers'].isna()) & (df[['Marginal_Workers','Non_Workers']].isna().sum(axis=1)==0)
     df.loc[mask,'Main_Workers']=df.loc[mask,'Population']-df.loc[mask,'Marginal_Workers':'Non_Workers'].sum(axis=1)
     mask=(df['Marginal_Workers'].isna()) & (df[['Main_Workers','Non_Workers']].isna().sum(axis=1)==0)
     df.loc[mask,'Marginal_Workers']=df.loc[mask,'Population']-df.loc[mask,['Main_Workers','Non_Workers']].sum(axis=1)
     mask=(df['Non_Workers'].isna()) & (df[['Main_Workers','Marginal_Workers']].isna().sum(axis=1)==0)
     df.loc[mask,'Non_Workers']=df.loc[mask,'Population']-df.loc[mask,['Main_Workers','Marginal_Workers']].sum(axis=1)
+
+    # fill missing male workers female workers
     mask=(df['Workers'].isna()) & (df.loc[:,['Male_Workers','Female_Workers']].isna().sum(axis=1)==0)
     df.loc[mask,'Workers']=df.loc[mask,['Male_Workers','Female_Workers']].sum(axis=1)
     mask=(df['Male_Workers'].isna()) & (df.loc[:,['Workers','Female_Workers']].isna().sum(axis=1)==0)
     df.loc[mask,'Male_Workers']=df.loc[mask,'Workers']-df.loc[mask,'Female_Workers']
     mask=(df['Female_Workers'].isna()) & (df.loc[:,['Workers','Male_Workers']].isna().sum(axis=1)==0)
     df.loc[mask,'Female_Workers']=df.loc[mask,'Workers']-df.loc[mask,'Male_Workers']
-    
+
+    # fill missing literates
+    mask= (df['Literate'].isna()) & (df[['Literate_Male','Literate_Female']].isna().sum(axis=1)==0)
+    df.loc[mask,'Literate']=df.loc[mask,['Literate_Male','Literate_Female']].sum(axis=1)
+    # fill missing male literates
+    mask=(df[['Literate','Literate_Female']].isna().sum(axis=1)==0)&(df['Literate_Male'].isna())
+    df.loc[mask,'Literate_Male']=df.loc[mask,'Literate']-df.loc[mask,'Literate_Female']
+    # fill missing female literates
+    mask=(df[['Literate','Literate_Male']].isna().sum(axis=1)==0)&(df['Literate_Female'].isna())
+    df.loc[mask,'Literate_Female']=df.loc[mask,'Literate']-df.loc[mask,'Literate_Male']
+
+    # fill households, households_rural, households_urban
+    mask=(df['Households'].isna())&(df[['Households_Rural','Households_Urban']].isna().sum(axis=1)==0)
+    df.loc[mask,'Households']=df.loc[mask,['Households_Rural','Households_Urban']].sum(axis=1)
+    mask=(df[['Households','Households_Rural']].isna().sum(axis=1)==0)&(df['Households_Urban'].isna())
+    df.loc[mask,'Households_Urban']=df.loc[mask,'Households']-df.loc[mask,'Households_Rural']
+    mask=(df[['Households','Households_Urban']].isna().sum(axis=1)==0)&(df['Households_Rural'].isna())
+    df.loc[mask,'Households_Rural']=df.loc[mask,'Households']-df.loc[mask,'Households_Urban']
 
 
-    
-
-def fill_missing_literates(df:pd.DataFrame):
-    fill_total_lit = (df['Literate'].isna() & (df[['Literate_Male','Literate_Female']].notna().all(axis=1)))
-    df.loc[fill_total_lit,'Literate']=df.loc[fill_total_lit,'Literate_Male']+df.loc[fill_total_lit,'Literate_Female']
-    mask=df['Literate'].notna()
-    df['Literate_Male']=df['Literate_Male'].fillna(df.loc[mask,'Population']-df.loc[mask,'Literate_Female'])
-    df['Literate_Female']=df['Literate_Female'].fillna(df.loc[mask,'Population']-df.loc[mask,'Literate_Male'])
+def mysqlcolumns(df:pd.DataFrame,mapped_cols:dict):
+    mapper={'int64':'INT','float64':'FLOAT','object':'VARCHAR(50)'}
+    columns=(f"{col} {mapper[str(df[col].dtype)]}" if len(col)<=50 else f"{mapped_cols[col]} {mapper[str(df[col].dtype)]}" for col in df.columns)
+    return columns
 
 
-
-def fill_missing_household(df:pd.DataFrame):
-    mask=df['Households'].isna()
-    fill_total_household=(mask & df[['Households_Rural','Households_Urban']].notna().all(axis=1))
-    df['Households']=df['Households'].fillna(df.loc[fill_total_household,'Households_Rural']+df.loc[fill_total_household,'Households_Urban'])
-    mask=df['Households'].notna()
-    df['Households_Rural']=df['Households_Rural'].fillna(df.loc[mask,'Households']-df.loc[mask,'Households_Urban'])
-    df['Households_Urban']=df['Households_Urban'].fillna(df.loc[mask,'Households']-df.loc[mask,'Households_Rural'])
