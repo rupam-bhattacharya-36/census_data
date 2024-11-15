@@ -52,5 +52,4 @@ Mkfile.old
 dkms.conf
 credentials.py
 test.py
-*.xlsx
 __pycache__
